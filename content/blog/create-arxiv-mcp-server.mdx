@@ -1,0 +1,591 @@
+---
+title: "Create an Arxiv MCP server and integrate with Claude desktop"
+subtitle: "Build your own MCP server to extend Claude Desktop with custom tools"
+date: "May 25, 2026"
+readTime: "20 min read"
+tags: ["MCP", "Claude Desktop", "API", "Python", "FastMCP", "ngrok", "arXiv"]
+excerpt: "A hands-on guide to building an MCP server from scratch — turning Claude Desktop into a research assistant that can search arXiv, retrieve paper metadata, and generate citations on demand."
+---
+
+# Introduction
+
+If you've used Claude Desktop, you've probably noticed it can do more than just chat — it can search the web, read files, or query a database, all by calling external tools. This is made possible by the Model Context Protocol (MCP), an open standard for connecting AI assistants to external data sources and tools.
+
+In this article, we'll build an MCP server from scratch in Python: an arXiv research assistant that lets Claude search papers, retrieve metadata, and generate BibTeX citations on demand. By the end, you'll understand the core concepts behind MCP, how to build a working server using FastMCP, and how to connect it to Claude Desktop so you can use it in your own conversations.
+
+# What is MCP?
+
+MCP stands for Model Context Protocol. It is a communication pattern created by Anthropic to allow large language models to communicate with external functionalitites, such as APIs, databases, and other services. In this article we are going to build a minimal mcp server using Python, host it locally, use ngrok to expose the server to the internet, and finally integrate it with Claude Desktop.
+
+# How does MCP work?
+
+MCP works considering three entities: the host, the client and the server. The host has the interface that the user interacts with. It can be chatgpt, claude desktop, or any other interface. The client is usually with the host and has the function of finding mcp servers on the network, establish connection, and make the translation between the large language model and the server. The server is the entity that contains the actual functionality we want to expose to the LLm. To ilustrate this process we go through some examples.
+
+### Reading files on a github repository
+
+Suppose we have a github repository and we want to read files of it to get some context and be able to answer some questions. The process of asking it to the llm, reading the actual file in the repository and receiving the data back is as follows:
+
+1. The user asks a question in the interface (e.g., Claude Desktop):
+
+```
+Whe is written in the README.md file?
+```
+
+2. The LLM reasons about the question, finds out that it needs to read the file to answer the question, choose to use a tool that can read the file, then use the mcp client to send the request to the mcp server in the JSON-RPC format.
+
+3. The mcp server receives the request that has the precise task, calls a tool to fecht the READM.md file, and send it back to the client.
+
+4. The client then sends the reponse back to the LLM as additional context.
+
+5. LLM is finally ready to answer the user's question.
+
+### Making a web search
+
+1. The user asks a question in the interface (e.g., Claude Desktop):
+
+```
+What are the latest news about artificial intelligence?
+```
+
+2. The LLM reasons about the question and decides it needs to search the web to answer it. It chooses the appropriate tool, and Claude Desktop sends the request to the MCP server in JSON-RPC format.
+
+3. The MCP server receives the request, executes the tool logic to search the web for the latest news about artificial intelligence, and sends the results back to Claude Desktop.
+
+4. Claude Desktop passes the results back to the LLM as additional context.
+
+5. The LLM is now ready to answer the user's question.
+
+# Prerequisites for this project
+
+In this project we are going to build an MCP server that interacts with Arxiv API. Arxiv is a free open-access repository of e-prints on subjects like mathematics, physics, machine learning, and so on. The API docummentation can be found <a href="https://arxiv.org/help/api/user-manual" target="_blank" rel="noopener noreferrer" className="text-red-500"><code>here</code></a>. The version of the Python used in this project was 3.12.3, and all the packages used are listed as follows:
+
+```bash
+lxml==6.1.1
+fastmcp==3.3.1
+mcp==1.27.1
+httpx==0.28.1
+pydantic==2.13.4
+uvicorn==0.47.0
+starlette==1.0.0
+python-dotenv==1.2.2
+```
+For this tutorial you are going to need Claude desktop installed as well, but i think any other chat interface such as chatgpt would work. I recommend you to create a virtual environment and install these packages.
+
+# Setting up the project
+
+First create a folder called arxiv-mcp-server (or anything like it) and inside it create the following structure:
+
+```bash
+arxiv-mcp-server/
+├── arxiv_xml_parser.py
+├── bibtex_parser.py
+├── config.py
+├── server.py
+```
+For now the Python files will be empty but we will fill them in the next sections. `server.py` will be the main entry of the server, calling all the necessary tools and resources needed. `config.py` will be used to store general configuration of the server. `arxiv_xml_parser.py` will be used to parse the XML response from the Arxiv API. `bibtex_parser.py` will be used to convert the XML format to bibtex format so that the user can use it to reference papers.
+Now create a `requirements.txt` file with the packages above and run the following commands:
+
+```bash
+# command to create the virtual environment
+virtualenv venv
+```
+
+```bash
+# activate venv
+source venv/bin/activate
+```
+
+```bash
+# command to install the packages from requirements.txt
+pip install -r requirements.txt
+```
+After these commands we have everything we need to start the project.
+
+# Building the server
+
+Now we are going to build the server file by file. Each file will be a subsection of this article.
+
+## config.py
+In `config.py` we just need one line of code:
+
+```python
+# here we set the config variables for the mcp server
+ARXIV_API_BASE_URL = "http://export.arxiv.org/api"
+```
+This variable will be used by the server file and other auxiliary files to make requests to the Arxiv API.
+
+## arxiv_xml_parser.py
+This file will be responsible for parsing the XML response from Arxiv API to a proper format inside the mcp server. It is composed by some namespaces and a function named `parse_arxiv_xml` that receives the XML text from Arxiv and returns a list of items on dictionary format. Each item inside this list represents an Arxiv paper. The code is as follows:
+
+```python
+import xml.etree.ElementTree as ET
+
+# Namespaces used in the arXiv Atom feed
+NAMESPACES = {
+    "atom":     "http://www.w3.org/2005/Atom",
+    "arxiv":    "http://arxiv.org/schemas/atom",
+    "opensearch": "http://a9.com/-/spec/opensearch/1.1/",
+}
+
+def parse_arxiv_xml(xml_text: str) -> list[dict]:
+    root = ET.fromstring(xml_text)
+    papers = []
+    for entry in root.findall("atom:entry", NAMESPACES):
+        papers.append({
+            "id": entry.find("atom:id", NAMESPACES).text.strip(),
+            "title": entry.find("atom:title", NAMESPACES).text.strip(),
+            "summary": entry.find("atom:summary", NAMESPACES).text.strip(),
+            "published": entry.find("atom:published", NAMESPACES).text.strip(),
+            "updated": entry.find("atom:updated", NAMESPACES).text.strip(),
+            "authors": [author.find("atom:name", NAMESPACES).text.strip() for author in entry.findall("atom:author", NAMESPACES)],
+            "pdf_url": next((link.get("href") for link in entry.findall("atom:link", NAMESPACES) if link.get("rel") == "related"), None),
+            "abstract_url": next((link.get("href") for link in entry.findall("atom:link", NAMESPACES) if link.get("rel") == "alternate"), None),
+        })
+    return papers
+```
+
+## bibtex_parser.py
+This file will handle the Bibtex conversion from the Arxiv response. Of course, large language models today can make this kind of conversion on their own, but if we want to make it more reliable we can create our own tool to do it. The file contains a function named `to_bibtex` that receives a paper dict from the Arxiv `parse_arxiv_xml` function and converts it to bibtex format. The code is as follows:
+
+```python
+# function to parse arxiv metadata to bibtex entry
+def to_bibtex(paper: dict) -> str:
+    """
+    This function takes a paper metadata (in dict format) and returns a bibtex entry.
+    An example of a bibtext entry, according to bibtex.com is
+
+    @article{nash51,
+        author  = "Nash, John",
+        title   = "Non-cooperative Games",
+        journal = "Annals of Mathematics",
+        year    = 1951,
+        volume  = "54",
+        number  = "2",
+        pages   = "286--295"
+    }
+    """
+    first_author = paper["authors"][0] if paper["authors"] else "Unknown"
+    last_name = first_author.split()[-1].lower()
+    year = paper["published"][:4]
+    arxiv_id = paper["id"].split("/abs/")[-1]
+    cite_key = f"{last_name}{year}_{arxiv_id}"
+    cite_key = cite_key.lower()
+
+    # authors: "Last, First and Last, First"
+    authors_bibtex = " and ".join(
+        f"{a.split()[-1]}, {' '.join(a.split()[:-1])}" if len(a.split()) > 1 else a
+        for a in paper["authors"]
+    )
+
+    # month name from published date
+    months = {
+        "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr",
+        "05": "May", "06": "Jun", "07": "Jul", "08": "Aug",
+        "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
+    }
+    month = months[paper["published"][5:7]]
+
+    # arxiv id from url
+    arxiv_id = paper["id"].split("/abs/")[-1]
+
+    # return bibtex entry
+    return f"""@article{{{cite_key},
+        title={{{paper["title"]}}},
+        url={{{paper["abstract_url"]}}},
+        author={{{authors_bibtex}}},
+        year={{{year}}},
+        month={month},
+        eprint={{{arxiv_id}}},
+        journal={{arXiv preprint}}
+    }}"""
+```
+
+## server.py
+Finally we can build the main file for the mcp server. This file will be responsible for initiating the server and defining the MCP tools and resources available to the LLM. The first step is importing all necessary packages and custom functions from other files.
+
+```python
+from fastmcp import FastMCP
+from typing import Literal
+from datetime import datetime
+from config import ARXIV_API_BASE_URL
+from arxiv_xml_parser import parse_arxiv_xml
+from bibtex_parser import to_bibtex
+
+import asyncio
+import httpx
+import json
+```
+
+After the imports we initialize the mcp server with the following command:
+
+```python
+mcp = FastMCP("arxiv")
+```
+
+This line is as simple as it sounds, it just creates an instance of the FastMCP class and assigns it to the variable `mcp`. The `"arxiv"` argument is the name of the mcp server, which will be used to identify it.
+
+Now we are prepared to create our first mcp tool. An MCP tool is basically a function that will be available to the LLM when needed. The synstax is the same as an usuall Python function, with the difference that we need to put a decorator on top of it to make it available to the LLM. Here as a minimal example before we implement the Arxiv functionalities:
+
+```python
+@mcp.tool()
+def my_tool(name: str) -> str:
+    """
+    A simple tool that returns a greeting message.
+    """
+    return f"Hello, {name}!"
+```
+When building an mcp tool, it is important to write a proper dockstring that clearly explains what the tool does and what parameters it expects. In this way, the LLM will be able to use the tool correctly. Also note that the function type hints should be as specific as possible to help the LLM understand the expected input and output types.
+
+Now we are ready to implement the first tool for our Arxiv MCP server. The first tool makes a general search with filters over Arxiv papers. It receives the search query, start and end indexes, max results, sort by, and sort order parameters. This tool returns a list of papers in JSON format. The code is as follows:
+
+```python
+@mcp.tool()
+async def search_papers(
+    query: str, 
+    start_index: int = 0, 
+    max_results: int = 10, 
+    sort_by: Literal["relevance", "lastUpdatedDate", "submittedDate"] = "relevance",
+    sort_order: Literal["ascending", "descending"] = "descending"
+    ) -> str:
+    """
+    Query papers on arxiv from search query string.
+
+    args:
+        query: search query string
+        start_index: 0-based index of first result
+        max_results: maximum number of results
+        sort_by: relevance | lastUpdatedDate | submittedDate
+        sort_order: ascending | descending
+    """
+
+    # check if the user asked for a large number of results
+    # max allowed is 100
+    if max_results > 100:
+        raise ValueError(f"Error max number of results: {max_results}. Max is 100")
+    
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.get(
+                f"{ARXIV_API_BASE_URL}/query",
+                params = {
+                    "search_query": query,
+                    "start": start_index,
+                    "max_results": max_results,
+                    "sortBy": sort_by,
+                    "sortOrder": sort_order
+                }
+            )
+            response.raise_for_status()
+            papers = parse_arxiv_xml(response.text)
+            return json.dumps(papers, ensure_ascii = False, indent = 2)
+    except Exception as e:
+        return f"Unexpected error: {e}"
+```
+
+It is important to notice here the `async` keyword in the function definition. This is important because this function makes calls to an external API (Arxiv API) nd it is good practice to use `async` functions for such purposes. Additionally, we use the `httpx.AsyncClient` class for the HTTP requests.
+
+So far the `server.py` file looks like this:
+
+```python
+import fastmcp
+# all other imports here
+# ...
+
+mcp = FastMCP("arxiv")
+
+@mcp.tool()
+async def search_papers():
+    # function logic
+```
+
+The next tool will be responsible for retrieving the full metadata of a paper given its ID. The function signature and docstring will be as follows:
+
+```python
+@mcp.tool()
+async def get_paper(arxiv_id: str) -> str:
+    """
+    This tool retrieves full metada from a specific arxiv paper.
+
+    args:
+        arxiv_id: arxiv paper id (e.g., 2605.13529)
+    """
+    try:
+        async with httpx.AsyncClient(follow_redirects = True) as client:
+            response = await client.get(
+                f"{ARXIV_API_BASE_URL}/query",
+                params = {
+                    "id_list": arxiv_id
+                }
+            )
+            response.raise_for_status()
+            paper = parse_arxiv_xml(response.text)
+            return json.dumps(paper, ensure_ascii = False, indent = 2)
+    except Exception as e:
+        return f"Unexpected error: {e}"
+```
+
+The next tool will get a paper pdf url from its Arxiv id. The tool code is as follows:
+
+```python
+@mcp.tool()
+async def get_paper_pdf_url(arxiv_id: str) -> str:
+    """
+    This tool retrieves the pdf url from a specific arxiv paper.
+
+    args:
+        arxiv_id: arxiv paper id (e.g., 2605.13529)
+    """
+    return f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+```
+
+And the last mcp tool of this server will be the one that creates the bibtex list from Arxiv ids. It takes a list of paper ids and returns a list of bibtex entries. The code is as follows:
+
+```python
+@mcp.tool()
+async def create_bibtex_list_from_arxiv_ids(arxiv_ids: list[str]) -> str:
+    """
+    This tool takes a list of arxiv ids as argument, create a bibtex entry for each paper, 
+    and returns the list of bibtex entries.
+
+    args:
+        arxiv_ids: list of arxiv ids (e.g., ["2605.13529"])
+    """
+    bibtex_entries = []
+    try:
+        for arxiv_id in arxiv_ids:
+            paper = await get_paper(arxiv_id)
+            bibtex_entry = to_bibtex(json.loads(paper)[0]) 
+            bibtex_entries.append(bibtex_entry)
+        return json.dumps(bibtex_entries, ensure_ascii = False, indent = 2)
+    except Exception as e:
+        return f"Something went wrong while fetching the papers and parsing to bibtex. Error: {e}"
+```
+
+It is important to see that the function `create_bibtex_list_from_arxiv_ids` calls the `get_paper` function, which is another mcp tool. There is no problem in doing that because `get_paper` is just a function and can be called like any other function.
+
+The last piece of code in this project is an mcp resource. An mcp resource is a function that exposes read-only data to the LLM. In this case our resource will provide some details of the Arxiv API, so that the LLM knows how to make a query, for instance. The resource is as follows:
+
+```python
+@mcp.resource("docs://arxiv/api")
+def arxiv_docs() -> str:
+    """
+    arXiv API documentation for query construction and results format. 
+    This resource can also help the user.
+    """
+    return """
+# arXiv API Documentation
+
+## Base URL
+http://export.arxiv.org/api/query
+
+## Response Format
+The API returns Atom/XML, not JSON. Results must be parsed as XML.
+
+## Parameters
+- search_query: Query string
+- id_list: Comma-separated arXiv IDs (preferred over search_query=id:xxx)
+- start: Starting index (default: 0)
+- max_results: Number of results (default: 10)
+- sortBy: relevance | lastUpdatedDate | submittedDate
+- sortOrder: ascending | descending
+
+## Field Prefixes
+| Prefix | Field              |
+|--------|--------------------|
+| ti     | Title              |
+| au     | Author             |
+| abs    | Abstract           |
+| co     | Comment            |
+| jr     | Journal Reference  |
+| cat    | Subject Category   |
+| rn     | Report Number      |
+| all    | All of the above   |
+
+## Boolean Operators
+- AND
+- OR
+- ANDNOT
+
+## Grouping
+- Parentheses: %28 %29
+- Phrases: %22 %22 (double quotes)
+- Space: + (extends query to multiple fields)
+
+## Date Filter
+submittedDate:[YYYYMMDDTTTT+TO+YYYYMMDDTTTT] (GMT, 24h format)
+
+## Query Examples
+- au:del_maestro
+- au:del_maestro AND ti:checkerboard
+- au:del_maestro ANDNOT ti:checkerboard
+- au:del_maestro ANDNOT %28ti:checkerboard OR ti:Pyrochlore%29
+- au:del_maestro AND ti:%22quantum criticality%22
+- au:del_maestro AND submittedDate:[202301010600+TO+202401010600]
+
+## Article Versions
+- Latest version: use id_list=cond-mat/0207270
+- Specific version: use id_list=cond-mat/0207270v1
+
+## Subject Categories
+### Computer Science
+- cs.AI    Artificial Intelligence
+- cs.CL    Computation and Language
+- cs.CV    Computer Vision and Pattern Recognition
+- cs.DS    Data Structures and Algorithms
+- cs.IR    Information Retrieval
+- cs.LG    Machine Learning
+- cs.NE    Neural and Evolutionary Computing
+- cs.RO    Robotics
+
+### Statistics
+- stat.ML  Machine Learning
+- stat.AP  Applications
+- stat.CO  Computation
+- stat.TH  Statistics Theory
+
+### Mathematics
+- math.ST  Statistics Theory
+- math.PR  Probability
+- math.OC  Optimization and Control
+
+### Physics
+- physics.comp-ph  Computational Physics
+- physics.data-an  Data Analysis, Statistics and Probability
+- cond-mat.dis-nn  Disordered Systems and Neural Networks
+- quant-ph         Quantum Physics
+
+### Quantitative Biology
+- q-bio.NC  Neurons and Cognition
+- q-bio.QM  Quantitative Methods
+
+### Economics
+- econ.EM  Econometrics
+
+## Returned Atom Feed Elements
+
+### Feed Level
+- title: Canonicalized query string
+- id: Unique query ID
+- updated: Last update (midnight of current day)
+- opensearch:totalResults: Total number of results
+- opensearch:startIndex: 0-based index of first result
+- opensearch:itemsPerPage: Number of results returned
+
+### Entry Level (per article)
+- title: Article title
+- id: URL in format http://arxiv.org/abs/id
+- published: Date version 1 was submitted
+- updated: Date retrieved version was submitted
+- summary: Abstract
+- author: Author name(s)
+- category: arXiv / ACM / MSC category
+- arxiv:primary_category: Primary arXiv category
+- arxiv:comment: Author comment (if present)
+- arxiv:journal_ref: Journal reference (if present)
+- arxiv:doi: Resolved DOI URL (if present)
+"""
+```
+
+The last piece of code runs the server. We just call the method `mcp.run()` with optional arguments:
+
+```python
+if __name__ == "__main__":
+    # ngrok run
+    mcp.run(transport = "sse", host = "0.0.0.0", port = 8000)
+
+    # local run
+    # mcp.run(transport = "stdio")
+```
+
+We have two cases of running the mcp server. One with `ngrok` which requires an active internet connection, and another with `stdio` which runs locally. In this article we are going to use the ngrok case.
+
+The final state of `server.py` will be as follows:
+
+```python
+import fastmcp
+# all other imports here
+# ...
+
+mcp = FastMCP("arxiv")
+
+@mcp.tool()
+async def search_papers():
+    # function logic
+
+@mcp.tool()
+async def get_paper():
+    # function logic
+
+@mcp.tool()
+async def create_bibtex_list_from_arxiv_ids():
+    # function logic
+
+# ...
+
+if __name__ == "__main__":
+    mcp.run(transport = "sse", host = "0.0.0.0", port = 8000)
+```
+
+# Running the server and ngrok configuration
+
+To run the server execute the following command (with the virtual environment activated):
+
+```bash
+python3 server.py
+```
+
+After that you will see something like that in the terminal:
+
+```bash
+[time] Starting MCP server 'arxiv' with transport 'sse' on http://0.0.0.0:8000/sse transport.py:301
+INFO:     Started server process [xxxxx]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
+This means that the mcp server is running! Now the next step is configure ngrok to make the server available from the internet. Next we need a ngrok authentication token, which can be obtained <a href="https://ngrok.com" target="_blank" rel="noopener noreferrer">`here`</a>. ngrok website has a great tutorial on how to install it in your machine and get the auth token. Once you have the token, you need to run the following command on a new terminal (you need to keep the mcp server running):
+
+```bash
+ngrok http 8000
+```
+
+You will see something like that in the terminal:
+
+```bash
+ngrok (Ctrl+C to quit)
+Session Status                online
+Account                       [EMAIL_ADDRESS] (Plan: Free)
+Version                       [VERSION]
+Region                        [REGION]
+Web Interface                 http://[IP_ADDRESS]
+Forwarding                    https://[DOMAIN] -> http://localhost:8000
+
+Connections                   ttl     opn     rt1     rt5     p50     p90
+                              0       0       0.00    0.00    0.00    0.00
+```
+
+The server is now running and available on the internet. The final step is to connect it to Claude Desktop.
+
+# Connecting to Claude Desktop
+
+I tried to use the `claude_desktop_config.json` file on my system to register the server, but somehow i did not work. Fortunately, there is a different way to connect the mcp server. I would like to think that the way I will present here is more like a work around. Here are the steps:
+
+1. On Claude Desktop go to settings.
+2. On settings go to the tab **Connectors**.
+3. The interface will tell you to navigate to **Customize**. Click on it.
+4. On Customize page you will see multiple connectors, such as github-reader, gmail, google calendar, and so on. In The middle column you will see a "+ (plus sign)" button. Click on it, then click on **Add custom connector**.
+5. Give the connector a name (e.g. "arxiv") and in the remote mcp server url, give the url ngrok created (e.g. "https://[DOMAIN]"). Click on the **add** button. Claude Desktop will try to connect to the mcp server. If the connection is successful, you now can use the tools directly in the chat interface!
+
+# Testing the server on Claude Desktop
+
+After the connector is successfully connected, you need to restart Claude Desktop. After restarting it, create a new chat and ask Claude to list the tools. If the arxiv tool is listed, then you can use it.
+
+# Conclusion
+
+In this article we built a new MCP server for arXiv, with tools to search and retrieve articles, create bibtex lists, and query the service in different ways, such as subject categories, boolean operators, etc. We learned about the MCP protocol, how to create a custom mcp server, and how to use ngrok to expose it to the internet. I hope this article was useful to help you to understand how MCP works and how you can create your own MCP servers.
+
+# References
+
+1. <a href="https://blog.gopenai.com/i-built-an-mcp-server-from-scratch-so-my-ai-could-finally-think-for-itself-and-you-can-too-de328a92fa31" target="_blank" rel="noopener noreferrer">I Built an MCP Server From Scratch So My AI Could Finally Think for Itself (And You Can Too)</a>
+2. <a href="https://info.arxiv.org/help/api/index.html" target="_blank" rel="noopener noreferrer">arXiv API User Manual</a>
+3. <a href="https://ngrok.com/docs/getting-started#debian-linux" target="_blank" rel="noopener noreferrer">ngrok Getting Started Guide</a>

@@ -1,0 +1,57 @@
+.wrap { padding-top: 120px; padding-bottom: 80px; }
+
+.h1 { 
+  font-family: var(--font-heading-base); 
+  font-size: clamp(36px, 4.5vw, 56px); 
+  font-weight: 700; 
+  letter-spacing: -0.02em; 
+  margin-bottom: 24px; 
+  line-height: 1.1; 
+}
+
+.desc { 
+  font-size: calc(16px * var(--font-scale, 1)); 
+  color: var(--text-muted); 
+  max-width: 600px; 
+  margin-bottom: 64px; 
+  line-height: 1.6; 
+}
+
+.list {
+  list-style-type: disc;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.listItem {
+  color: var(--text);
+}
+
+.listItem::marker {
+  color: var(--accent);
+}
+
+.itemTitle {
+  font-size: calc(18px * var(--font-scale, 1));
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.itemTitle strong {
+  font-family: var(--font-heading-base);
+  font-size: calc(22px * var(--font-scale, 1));
+}
+
+.levelName {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.description { 
+  font-size: calc(15px * var(--font-scale, 1)); 
+  color: var(--text-muted); 
+  line-height: 1.6; 
+  max-width: 800px;
+}

@@ -1,0 +1,30 @@
+.body { max-width: 680px; }
+
+.p {
+  font-size: calc(16px * var(--font-scale, 1));
+  line-height: 1.85;
+  color: var(--text);
+  margin-bottom: 24px;
+}
+
+.h2 {
+  font-family: var(--font-heading);
+  font-size: calc(26px * var(--font-scale, 1));
+  font-weight: 600;
+  margin: 44px 0 18px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.code {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px 24px;
+  font-family: var(--font-mono);
+  font-size: calc(13px * var(--font-scale, 1));
+  line-height: 1.7;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}

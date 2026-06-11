@@ -1,0 +1,30 @@
+---
+title: "arXiv MCP Server"
+subtitle: "An MCP server that turns Claude into an arXiv research assistant"
+description: "A Model Context Protocol (MCP) server built with FastMCP that exposes the arXiv API as tools and resources for LLMs. Enables Claude Desktop to search papers, retrieve metadata, fetch PDF links, and generate BibTeX citations directly within a conversation."
+tech: ["Python", "FastMCP", "httpx", "asyncio", "Docker", "Fly.io"]
+tags: ["MCP", "LLM Tooling", "Research Tools"]
+year: "2026"
+status: "Completed"
+---
+## About the project
+Large language models are good at reasoning over text, but they're blind to live data unless explicitly given access to it. The Model Context Protocol (MCP) addresses this by standardizing how AI assistants connect to external tools and data sources — letting an LLM call functions, query APIs, and read structured documentation as part of a conversation.
+
+This project implements an MCP server that exposes the arXiv API to Claude Desktop. Rather than relying on the model's training data to know about papers, Claude can search arXiv directly, retrieve full metadata for a specific paper, fetch PDF links, and generate ready-to-use BibTeX citations — all through natural conversation.
+
+The server parses arXiv's Atom/XML responses into structured JSON, exposes the arXiv query syntax (field prefixes, boolean operators, date filters, subject categories) as a documentation resource so the LLM can construct advanced queries on its own, and includes proper async HTTP handling, error handling, and logging suited to the stdio/SSE constraints of the MCP protocol.
+
+## Tools
+
+- **search_papers** — full-syntax arXiv search with sorting and pagination
+- **get_paper** — full metadata retrieval by arXiv ID
+- **get_paper_pdf_url** — direct PDF link for a given paper
+- **create_bibtex_list_from_arxiv_ids** — BibTeX generation for citation management
+
+## Deployment
+
+Containerized with Docker and tested on Fly.io using the SSE transport, with a local stdio mode for direct integration with Claude Desktop via MCP Inspector.
+
+## Github
+
+[github.com/israelwcg011/arxiv-mcp-server](https://github.com/israelwcg011/arxiv-mcp-server)

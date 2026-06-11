@@ -1,0 +1,115 @@
+.pageWrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+}
+
+.hero {
+  width: 100%;
+  padding: 80px 0;
+}
+
+.heroContainer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 60px;
+}
+
+.heroContent {
+  flex: 1;
+  max-width: 600px;
+}
+
+.eyebrow {
+  font-size: calc(12px * var(--font-scale, 1));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.h1 {
+  font-family: var(--font-heading);
+  font-size: clamp(48px, 6vw, 88px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  margin-bottom: 28px;
+}
+
+.tagline {
+  font-size: calc(20px * var(--font-scale, 1));
+  color: var(--text-muted);
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+.heroNav {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 0 1 450px;
+  width: 100%;
+}
+
+.navButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text);
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+}
+
+.navButton:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-glow);
+  border-color: var(--accent);
+}
+
+.navButton:hover .navArrow {
+  transform: translateX(4px);
+}
+
+
+.navLabel {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: calc(20px * var(--font-scale, 1));
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.navDesc {
+  display: block;
+  font-size: calc(14px * var(--font-scale, 1));
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.navArrow {
+  font-size: 24px;
+  color: var(--accent);
+  transition: transform var(--transition);
+  margin-left: 20px;
+}
+
+@media (max-width: 992px) {
+  .heroContainer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 48px;
+  }
+  
+  .heroNav {
+    flex: 1 1 auto;
+  }
+}
+

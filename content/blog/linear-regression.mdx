@@ -1,0 +1,142 @@
+---
+title: "Linear Regression"
+subtitle: "When and how to use it, and how to optimize it"
+date: "Jul 22, 2022"
+readTime: "10 min read"
+tags: ["Machine Learning", "Linear Regression", "Optimization"]
+excerpt: "Linear regression is the entry door for those who are studying machine learning. Learn when and how to use it on your data, and how to optimize it."
+---
+
+# Linear regression
+
+Linear regression is the entry door for those who are studying machine learning. The algorithm is easy to understand and is very straightforward to implement. In this article we will learn when and how to use linear regression on our data, and also how to optimize it.
+
+## When to use linear regression
+
+As the name suggests, linear regression is an algorithm that has to be used on linear data. Of course you can use it on nonlinear data, but, as you will see down below, it might not have a good performance on fitting nonlinear data, because it can't capture nonlinearity.
+
+## The problem
+
+Suppose we have two vectors of data points, $\bold{x}$ and $\bold{y}$, where $\bold{x} \in \mathbb{R}^{N}$ and $\bold{y} \in \mathbb{R}^{N}$. Let's assume here that $\bold{x}$ and $\bold{y}$ are linearly correlated and we want to predict $\bold{y}$ given $\bold{x}$. We know that the most general form of linear dependence of one variable is given by
+
+$$
+y = wx + b
+$$
+
+where $y$ is the output variable, $w$ is the weight (also known as angular coefficient), $x$ is the input variable, and $b$ is the bias (also known as linear coefficient). Remembering that $\bold{x}$ and $\bold{y}$ are vectors of size $N$, we can represent equation (1) in the following vectorial form:
+
+$$
+\begin{bmatrix}y_{1}\\y_{2}\\ y_{3}\\ \vdots\\ y_{N}\end{bmatrix}=w\begin{bmatrix}x_{1}\\x_{2}\\ x_{3}\\ \vdots\\ x_{N}\end{bmatrix}+b\begin{bmatrix}1\\1\\ 1\\ \vdots\\ 1\end{bmatrix}
+$$
+
+Representing vectors with bold letters we have:
+
+$$
+\bold{y} = w\bold{x} + \bold{b}
+$$
+
+For simplicity, suppose that $\bold{x}$ and $\bold{y}$ are already the train data so we don't need to use any subscripts. Denoting $\hat{\bold{y}}$ the vector of predictions and $\bold{y}$ the vector of true values, the objective here is to find $w$ such that the error between $\bold{y}$ and $\hat{\bold{y}}$ is minimal. The idea here is to use a function that depends on both $\hat{\bold{y}}$ and $\bold{y}$, and then minimize it. There are several possibilities out there, but we will choose the mean squared error, which in this case is given by
+
+$$
+\mathsf{E}(\hat{\bold{y}}, \bold{y}) = \frac{1}{N} \|\hat{\bold{y}} - \bold{y}\|_{2}^{2}
+$$
+
+in vectorial form. Note that we are using the $L^{2}$ norm vector to calculate the distance between $\hat{\bold{y}}$ and $\bold{y}$. Sometimes it is convenient to represent the $\mathsf{E}$ function using the components of vector $\hat{\bold{y}}$ and $\bold{y}$:
+
+$$
+\mathsf{E}(\hat{\bold{y}}, \bold{y}) = \frac{1}{N} \sum_{i = 1}^{N}\|\hat{y}_{i} - y_{i}\|_{2}^{2}
+$$
+
+## Minimizing the function E
+
+To minimize $\mathsf{E}$ we first write $\hat{\bold{y}}$ as
+
+$$
+\hat{\bold{y}} = w \bold{x} + \bold{b},
+$$
+
+where $\bold{x}$ is the train input and $\bold{b}$ is the bias. Using equation (5) on the error $\mathsf{E}$ function we have
+
+$$
+\mathsf{E} = \frac{1}{N} \|w\bold{x} + \bold{b} - \bold{y}\|_{2}^{2}.
+$$
+
+We know that for a vector $\bold{u}$, we can write its $L^{2}$ norm as
+
+$$
+\|\bold{u}\|_{2} = \sqrt{\bold{u}^{T}\bold{u}}.
+$$
+
+Using this result we can write the error function in the following way:
+
+$$
+\mathsf{E} = \frac{1}{N} (w \bold{x} + \bold{b})^{T}(w \bold{x} + \bold{b}).
+$$
+
+Developing the product of the terms between parenthesis we have
+
+$$
+\mathsf{E}=\frac{1}{N}\left[(w\bold{x})^{T}w\bold{x}+(w\bold{x})^{T}\bold{b}-(w\bold{x})^{T}\bold{y}+\bold{b}^{T}w\bold{x}+\bold{b}^{T}\bold{b}-\bold{b}^{T}\bold{y}-\bold{y}^{T}w\bold{x}-\bold{y}^{T}\bold{b}+\bold{y}^{T}\bold{y}\right].
+$$
+
+After making simplifications we arrive at the following form for the error:
+
+$$
+\mathsf{E}=\frac{1}{N}\left[\bold{x}^{T}\bold{x}w^{2}+2\bold{x}^{T}\bold{b}w-2\bold{x}^{T}\bold{y}w+\bold{b}^{T}\bold{b}-2\bold{y}^{T}\bold{b}+\bold{y}^{T}\bold{y}\right].
+$$
+
+To find $w$ that minimizes $\mathsf{E}$ we first have to pay attention on some aspects of the function $\mathsf{E}$. First, we see that $\mathsf{E}$ is a quadratic function of $w$, and we see that the coefficient of $w^{2}$ is greater than or equal to zero because the magnitude of a vector is never negative. Because of this result, if we take the derivative of $\mathsf{E}$ with respect to $w$ and make this equal to zero, the value of $w$ that we will find will be precisely the value that minimizes $\mathsf{E}$. To execute this calculation, first we have:
+
+$$
+\frac{\mathrm{d} \mathsf{E}}{\mathrm{d} w}=0.
+$$
+
+Observing equation (8) and ignoring the terms that do not depend on $w$, we have:
+
+$$
+\frac{1}{N}\left[\frac{\mathrm{d}}{\mathrm{d} w}(\bold{x}^{T}\bold{x}w^{2})+\frac{\mathrm{d}}{\mathrm{d} w}(2\bold{x}^{T}\bold{b}w)-\frac{\mathrm{d}}{\mathrm{d} w}(2\bold{x}^{T}\bold{y}w)\right]=0.
+$$
+
+After computing the derivatives we have:
+
+$$
+2\bold{x}^{T}\bold{x}w+2\bold{x}^{T}\bold{b}-2\bold{x}^{T}\bold{y}=0.
+$$
+
+Solving for $w$ we find:
+
+$$
+w = \frac{\bold{x}^{T}\bold{y}-\bold{x}^{T}\bold{b}}{\bold{x}^{T}\bold{x}}.
+$$
+
+We can write this result in the form:
+
+$$
+w=\frac{\bold{x}^{T}}{\|\bold{x}\|_{2}^{2}}(\bold{y}-\bold{b}).
+$$
+
+## Particular case: bias equal to zero
+
+If we consider $b = 0$, we get the particular case:
+
+$$
+w = \frac{\bold{x}^{T}\bold{y}}{\|\bold{x}\|_{2}^{2}}.
+$$
+
+One interesting thing about the equation (11) is that we can write $w$ in terms of the angle $\theta$ between $\bold{x}$ and $\bold{y}$. First we notice that
+
+$$
+\bold{x}^{T}\bold{y}=\|\bold{x}\|_{2}\|\bold{y}\|_{2}\cos(\theta).
+$$
+
+Using this relation we can rewrite $w$ in the following form:
+
+$$
+w=\frac{\|\bold{y}\|_{2}}{\|\bold{x}\|_{2}}\cos(\theta).
+$$
+
+This is a very interesting result! This form of $w$ tells us that its absolut size depends on how big the vector $\bold{y}$ is compared to the vector $\bold{x}$. The $\cos(\theta)$ determines the sign of $w$. Although this form of $w$ is less convenient for practical purposes, it tells more about the form of $w$. Finally, if we plug the result for $w$ (without bias) in the original equation, we have:
+
+$$
+\hat{y}=\frac{\bold{x}^{T}\bold{y}}{\|\bold{x}\|_{2}^{2}}x+b.
+$$

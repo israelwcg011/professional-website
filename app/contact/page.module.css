@@ -1,0 +1,20 @@
+.wrap { padding-top: 120px; padding-bottom: 80px; }
+.grid { display: grid; grid-template-columns: 1fr 400px; gap: 80px; align-items: start; }
+.h1 { font-family: var(--font-heading); font-size: clamp(32px, 3.5vw, 48px); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 16px; line-height: 1.1; }
+.desc { font-size: calc(16px * var(--font-scale, 1)); color: var(--text-muted); line-height: 1.7; margin-bottom: 40px; }
+
+.contactLinks { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 40px; }
+.btnPrimary { padding: 14px 32px; background: var(--accent); color: var(--bg); border-radius: var(--radius); font-size: calc(14px * var(--font-scale, 1)); font-weight: 600; letter-spacing: 0.02em; transition: transform 0.2s ease, opacity var(--transition); display: inline-flex; align-items: center; justify-content: center; }
+.btnPrimary:hover { opacity: 0.9; }
+.btnPrimary:active { transform: scale(0.97); }
+.btnSecondary { padding: 13px 32px; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-size: calc(14px * var(--font-scale, 1)); font-weight: 600; letter-spacing: 0.02em; transition: transform 0.2s ease, border-color var(--transition); display: inline-flex; align-items: center; justify-content: center; }
+.btnSecondary:hover { border-color: var(--text-muted); }
+.btnSecondary:active { transform: scale(0.97); }
+
+.infoCard { background: var(--bg-glass); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 8px; padding: 32px; }
+.infoLabel { font-size: calc(11px * var(--font-scale, 1)); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); font-weight: 600; margin-bottom: 20px; }
+.infoItem { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.infoItem:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.infoTitle { font-size: calc(13px * var(--font-scale, 1)); color: var(--text-muted); margin-bottom: 4px; }
+.infoValue { font-size: calc(15px * var(--font-scale, 1)); color: var(--text); font-weight: 500; }
+@media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
