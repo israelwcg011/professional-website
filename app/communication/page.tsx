@@ -27,15 +27,9 @@ const languages = [
   },
   {
     language: 'German',
-    level: 'A2, Elementary',
-    description: 'Can understand sentences and frequently used expressions related to areas of most immediate relevance (e.g., very basic personal and family information, shopping, local geography, employment).',
-    progress: 35,
-  },
-  {
-    language: 'Italian',
-    level: 'A1, Beginner',
-    description: 'Can understand and use familiar everyday expressions and very basic phrases aimed at the satisfaction of needs of a concrete type. Can introduce themselves and others.',
-    progress: 20,
+    level: 'B1, Intermediate',
+    description: 'Can understand the main points of clear standard input on familiar matters regularly encountered in work, school, leisure, etc. Can deal with most situations likely to arise while travelling and can describe experiences, events, dreams, and ambitions.',
+    progress: 50,
   }
 ];
 
