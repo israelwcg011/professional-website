@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { SITE_DATA } from '@/lib/data';
 import Tag from '@/components/Tag';
 import styles from './page.module.css';
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default function CertificatesPage() {
+  notFound();
+
   return (
     <div className={styles.wrap}>
       <div className="container">

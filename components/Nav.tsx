@@ -11,9 +11,7 @@ const NAV_LINKS = [
   ['resume', 'Resume'],
   ['blog', 'Blog'],
   ['portfolio', 'Portfolio'],
-  ['certificates', 'Certificates'],
   ['communication', 'Languages'],
-  ['talks', 'Talks'],
 ] as const;
 
 export default function Nav() {

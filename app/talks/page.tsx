@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { SITE_DATA } from '@/lib/data';
 import styles from './page.module.css';
 
@@ -8,6 +9,8 @@ export const metadata: Metadata = {
 };
 
 export default function TalksPage() {
+  notFound();
+
   return (
     <div className={styles.wrap}>
       <div className="container">
